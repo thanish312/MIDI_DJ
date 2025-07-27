@@ -1,103 +1,59 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
-*/
-import { css, html, LitElement } from 'lit';
+ */
+
+import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { styleMap } from 'lit/directives/style-map.js';
-
-import { throttle } from '../utils/throttle';
-
-import './PromptController';
+import { Prompt, PlaybackState } from '../types';
+import { MidiController } from '../utils/MidiController';
+import './PromptSlider';
 import './PlayPauseButton';
-import type { PlaybackState, Prompt } from '../types';
-import { MidiDispatcher } from '../utils/MidiDispatcher';
+import './FilteredPromptList';
+import { FilteredPromptList } from './FilteredPromptList';
+import './Visualizer';
 
-/** The grid of prompt inputs. */
 @customElement('prompt-dj-midi')
 export class PromptDjMidi extends LitElement {
-  static override styles = css`
+  @property({ type: Object }) prompts = new Map<string, Prompt>();
+  @property({ type: String }) playbackState: PlaybackState = 'stopped';
+  @property({ type: Number }) audioLevel = 0;
+
+  @state() private midiSupported = false;
+  @state() private midiDevices: string[] = [];
+
+  private midiController: MidiController;
+
+  static styles = css`
     :host {
+      display: flex;
+      width: 100%;
       height: 100%;
+      flex-direction: column;
+      user-select: none;
+    }
+    .prompts {
+      flex-grow: 1;
       display: flex;
       flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      box-sizing: border-box;
-      position: relative;
+      overflow-y: auto;
+      padding: 16px;
     }
-    #background {
-      will-change: background-image;
-      position: absolute;
-      height: 100%;
-      width: 100%;
-      z-index: -1;
-      background: #111;
-    }
-    #grid {
-      width: 80vmin;
-      height: 80vmin;
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 2.5vmin;
-      margin-top: 8vmin;
-    }
-    prompt-controller {
-      width: 100%;
-    }
-    play-pause-button {
-      position: relative;
-      width: 15vmin;
-    }
-    #buttons {
-      position: absolute;
-      top: 0;
-      left: 0;
-      padding: 5px;
+    .controls {
       display: flex;
-      gap: 5px;
+      padding: 16px;
+      gap: 16px;
+      border-top: 1px solid #eee;
     }
-    button {
-      font: inherit;
-      font-weight: 600;
-      cursor: pointer;
-      color: #fff;
-      background: #0002;
-      -webkit-font-smoothing: antialiased;
-      border: 1.5px solid #fff;
-      border-radius: 4px;
-      user-select: none;
-      padding: 3px 6px;
-      &.active {
-        background-color: #fff;
-        color: #000;
-      }
+    .play-pause-button {
+      width: 48px;
+      height: 48px;
     }
-    select {
-      font: inherit;
-      padding: 5px;
-      background: #fff;
-      color: #000;
-      border-radius: 4px;
-      border: none;
-      outline: none;
-      cursor: pointer;
+    .visualizer {
+      flex-grow: 1;
+      height: 48px;
     }
-  `;
-
-  private prompts: Map<string, Prompt>;
-  private midiDispatcher: MidiDispatcher;
-
-  @property({ type: Boolean }) private showMidi = false;
-  @property({ type: String }) public playbackState: PlaybackState = 'stopped';
-  @state() public audioLevel = 0;
-  @state() private midiInputIds: string[] = [];
-  @state() private activeMidiInputId: string | null = null;
-
-  @property({ type: Object })
-  private filteredPrompts = new Set<string>();
-
-  .no-midi {
+    .no-midi {
       padding: 16px;
       background-color: #eee;
       border-radius: 8px;
@@ -202,36 +158,5 @@ export class PromptDjMidi extends LitElement {
         ></prompt-slider>
       `)}
     `;
-  }
-}
-          ${this.midiInputIds.length > 0
-        ? this.midiInputIds.map(
-          (id) =>
-            html`<option value=${id}>
-                    ${this.midiDispatcher.getDeviceName(id)}
-                  </option>`,
-        )
-        : html`<option value="">No devices found</option>`}
-        </select>
-      </div>
-      <div id="grid">${this.renderPrompts()}</div>
-      <play-pause-button .playbackState=${this.playbackState} @click=${this.playPause}></play-pause-button>`;
-  }
-
-  private renderPrompts() {
-    return [...this.prompts.values()].map((prompt) => {
-      return html`<prompt-controller
-        promptId=${prompt.promptId}
-        ?filtered=${this.filteredPrompts.has(prompt.text)}
-        cc=${prompt.cc}
-        text=${prompt.text}
-        weight=${prompt.weight}
-        color=${prompt.color}
-        .midiDispatcher=${this.midiDispatcher}
-        .showCC=${this.showMidi}
-        audioLevel=${this.audioLevel}
-        @prompt-changed=${this.handlePromptChanged}>
-      </prompt-controller>`;
-    });
   }
 }
